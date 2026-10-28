@@ -112,7 +112,7 @@
 3. Cloud sync with retry logic and clean error logging.</textarea>
       </div>
 
-      <!-- 4. DATA SCHEMA / STATE MODEL -->
+      <!-- 4. DATA SCHEMA / STATE  -->
       <div>
         <label class="block text-xs font-semibold text-zinc-300 mb-1">Data Model / Storage / API Endpoints</label>
         <textarea id="projData" rows="2" oninput="compileAll()" class="w-full p-3 rounded-lg bg-panel border border-border text-xs mono text-zinc-200 focus:outline-none focus:border-emerald-500" placeholder="Tables, JSON keys, local SQLite, or REST payload structure...">Entities: ID, Timestamp, TaskName, Category, Status, ExecutionLog, Owner</textarea>
@@ -425,7 +425,7 @@ Start by providing the clean file/folder structure, then output the complete, ru
             body: JSON.stringify({
               action: 'aiProxy',
               apiKey: apiKey,
-              model: 'gemini-2.5-flash',
+              model: 'gemini-3.8-flash',
               systemPrompt: sysInstruction,
               userPrompt: rawFeatures
             }),
@@ -436,7 +436,7 @@ Start by providing the clean file/folder structure, then output the complete, ru
           refinedText = data.text || data.output || '';
         } else if (provider === 'gemini_direct') {
           if (!apiKey) throw new Error('Paste your Gemini API Key in Cloud Setup.');
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
           const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
