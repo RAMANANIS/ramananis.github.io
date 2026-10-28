@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PromptForge Cloud — AI Spec & Prompt Compiler</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            amoled: '#000000',
+            surface: '#0a0a0c',
+            panel: '#111115',
+            border: '#1f1f26',
+            accent: '#10b981'
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { background-color: #000000; color: #e4e4e7; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #050507; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-amoled text-zinc-200 selection:bg-emerald-500 selection:text-black">
+
+  <!-- TOP NAVBAR -->
+  <header class="border-b border-border bg-surface/90 backdrop-blur sticky top-0 z-30 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold">
+        <i class="fa-solid fa-terminal"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-bold text-base tracking-tight text-white">PromptForge <span class="text-emerald-400">Cloud</span></h1>
+          <span id="sheetStatusBadge" class="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+            <i class="fa-solid fa-circle text-[8px] mr-1"></i>Sheet Unlinked
+          </span>
+        </div>
+        <p class="text-xs text-zinc-400">AI Architecture Compiler for Websites, Web Apps & Standalone .EXE</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button onclick="refineWithCloudAI()" id="btnRefineAI" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition flex items-center gap-2 shadow-lg shadow-purple-900/20">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> AI Refine Spec
+      </button>
+      <button onclick="saveSpecToSheet()" id="btnSaveSheet" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-black font-bold transition flex items-center gap-2">
+        <i class="fa-solid fa-cloud-arrow-up"></i> Save to Sheet
+      </button>
+      <button onclick="openConfigModal()" class="px-3.5 py-2 rounded-lg text-xs font-medium bg-panel hover:bg-zinc-800 text-zinc-200 border border-border transition flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-emerald-400"></i> Cloud API & Sheet Setup
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WORKBENCH -->
+  <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0">
+
+    <!-- LEFT COLUMN: INPUT PARAMETERS (5 COLS) -->
+    <section class="lg:col-span-5 border-r border-border bg-surface p-5 space-y-5 overflow-y-auto max-h-[calc(100vh-61px)]">
+      
+      <!-- 1. TARGET ARTIFACT SELECTOR -->
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">1. Target Build Artifact</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="setArtifact('website')" id="type-website" class="artifact-btn p-3 rounded-lg border text-left transition">
+            <i class="fa-solid fa-globe text-blue-400 mb-1 block"></i>
+            <div class="font-semibold text-xs text-white">Website</div>
+            <div class="text-[10px] text-zinc-400">Landing / UI / Static</div>
+          </button>
+          <button type="button" onclick="setArtifact('webapp')" id="type-webapp" class="artifact-btn p-3 rounded-lg border text-left transition">
+            <i class="fa-solid fa-layer-group text-emerald-400 mb-1 block"></i>
+            <div class="font-semibold text-xs text-white">Web App</div>
+            <div class="text-[10px] text-zinc-400">Full-Stack / CRUD / API</div>
+          </button>
+          <button type="button" onclick="setArtifact('exe')" id="type-exe" class="artifact-btn p-3 rounded-lg border text-left transition">
+            <i class="fa-brands fa-windows text-purple-400 mb-1 block"></i>
+            <div class="font-semibold text-xs text-white">Desktop .EXE</div>
+            <div class="text-[10px] text-zinc-400">Standalone Windows Tool</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. PROJECT IDENTITY & STACK -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Project Name</label>
+          <input id="projName" type="text" value="InfraPulse Portal" oninput="compileAll()" class="w-full px-3 py-2 rounded-lg bg-panel border border-border text-sm text-white focus:outline-none focus:border-emerald-500" placeholder="e.g., PatchManager Pro" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Tech Stack Preset</label>
+          <select id="stackSelect" onchange="compileAll()" class="w-full px-3 py-2 rounded-lg bg-panel border border-border text-sm text-white focus:outline-none focus:border-emerald-500"></select>
+        </div>
+      </div>
+
+      <!-- 3. CORE OBJECTIVE & FEATURES -->
+      <div>
+        <label class="block text-xs font-semibold text-zinc-300 mb-1">Core Problem & Functional Features</label>
+        <textarea id="projFeatures" rows="4" oninput="compileAll()" class="w-full p-3 rounded-lg bg-panel border border-border text-sm text-white focus:outline-none focus:border-emerald-500" placeholder="Describe what the app does, inputs, outputs, and main workflows...">Build an interactive dashboard and automation tool with:
+1. Real-time status cards and searchable data table with CSV/JSON export.
+2. Form modal with strict input validation and status notifications.
+3. Cloud sync with retry logic and clean error logging.</textarea>
+      </div>
+
+      <!-- 4. DATA SCHEMA / STATE MODEL -->
+      <div>
+        <label class="block text-xs font-semibold text-zinc-300 mb-1">Data Model / Storage / API Endpoints</label>
+        <textarea id="projData" rows="2" oninput="compileAll()" class="w-full p-3 rounded-lg bg-panel border border-border text-xs mono text-zinc-200 focus:outline-none focus:border-emerald-500" placeholder="Tables, JSON keys, local SQLite, or REST payload structure...">Entities: ID, Timestamp, TaskName, Category, Status, ExecutionLog, Owner</textarea>
+      </div>
+
+      <!-- 5. UI / UX & DESIGN TOKENS -->
+      <div>
+        <label class="block text-xs font-semibold text-zinc-300 mb-1">UI / UX Design Theme</label>
+        <select id="uiTheme" onchange="compileAll()" class="w-full px-3 py-2 rounded-lg bg-panel border border-border text-sm text-white focus:outline-none focus:border-emerald-500">
+          <option value="True-Black AMOLED (#000000), high-contrast emerald/cyan accents, dense developer workbench layout">True-Black AMOLED + High-Contrast Neon Accents</option>
+          <option value="Modern SaaS Dark Slate (#09090b), subtle glassmorphism borders, clean KPI cards">Modern SaaS Dark Slate (Linear / Vercel style)</option>
+          <option value="Clean Enterprise Light/Dark toggle, accessible high-readability tables, compact sidebar">Enterprise Admin Portal (High-Density Data Grid)</option>
+          <option value="Native Windows 11 Fluent Dark UI, clean status bar, tabbed command workspace">Windows 11 Fluent Dark Desktop Utility</option>
+        </select>
+      </div>
+
+      <!-- 6. ARCHITECTURAL GUARDRAILS -->
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Strict AI Guardrails (Injected Rules)</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+          <label class="flex items-center gap-2 p-2 rounded bg-panel border border-border cursor-pointer">
+            <input type="checkbox" class="rule-chk accent-emerald-500" value="NEVER use placeholder comments like '// TODO' or '// rest of code'. Output 100% complete, runnable code." checked onchange="compileAll()" />
+            <span>No `// TODO` or Truncated Code</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded bg-panel border border-border cursor-pointer">
+            <input type="checkbox" class="rule-chk accent-emerald-500" value="Wrap all I/O, network, and file operations in try/catch blocks with user-visible toast/log feedback." checked onchange="compileAll()" />
+            <span>Strict Try/Catch & Logging</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded bg-panel border border-border cursor-pointer">
+            <input type="checkbox" class="rule-chk accent-emerald-500" value="Validate and sanitize all user inputs before processing or sending to backend APIs." checked onchange="compileAll()" />
+            <span>Strict Input Validation</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded bg-panel border border-border cursor-pointer">
+            <input type="checkbox" class="rule-chk accent-emerald-500" value="Keep functions modular, under 50 lines each, with clear docstrings and zero external bloat." checked onchange="compileAll()" />
+            <span>Modular Clean Functions</span>
+          </label>
+          <label id="exeRuleBox" class="flex items-center gap-2 p-2 rounded bg-panel border border-border cursor-pointer sm:col-span-2">
+            <input type="checkbox" id="exeRuleChk" class="rule-chk accent-emerald-500" value="For .EXE builds: Run heavy tasks on background worker threads so the GUI never freezes, and resolve bundled assets via sys._MEIPASS." onchange="compileAll()" />
+            <span class="text-purple-300">Desktop .EXE: Threaded GUI + `sys._MEIPASS` Single-File Path Safe</span>
+          </label>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT COLUMN: OUTPUT COMPILER & CLOUD VAULT (7 COLS) -->
+    <section class="lg:col-span-7 flex flex-col bg-amoled max-h-[calc(100vh-61px)]">
+      
+      <!-- TABS -->
+      <div class="flex border-b border-border bg-surface px-4 pt-2 gap-2 overflow-x-auto">
+        <button onclick="switchTab('tab-master')" id="btn-tab-master" class="tab-btn px-3 py-2 text-xs font-semibold border-b-2 border-emerald-400 text-emerald-400">
+          1. Master Mega-Prompt
+        </button>
+        <button onclick="switchTab('tab-slicer')" id="btn-tab-slicer" class="tab-btn px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-zinc-400 hover:text-white">
+          2. 5-Stage Execution Queue
+        </button>
+        <button onclick="switchTab('tab-files')" id="btn-tab-files" class="tab-btn px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-zinc-400 hover:text-white">
+          3. Context Files (.cursorrules / SPEC.md)
+        </button>
+        <button onclick="switchTab('tab-vault')" id="btn-tab-vault" class="tab-btn px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-zinc-400 hover:text-white">
+          4. Google Sheet Vault
+        </button>
+      </div>
+
+      <!-- TAB 1: MASTER PROMPT -->
+      <div id="tab-master" class="tab-pane flex-1 p-5 overflow-y-auto space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-zinc-400">Copy and paste this into Cursor, Claude, ChatGPT, or Aider to initialize your project:</span>
+          <button onclick="copyText('masterPromptOut')" class="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-emerald-400 border border-zinc-700">
+            <i class="fa-regular fa-copy mr-1"></i> Copy Mega-Prompt
+          </button>
+        </div>
+        <pre id="masterPromptOut" class="p-4 rounded-xl bg-surface border border-border text-xs mono whitespace-pre-wrap leading-relaxed text-zinc-200 select-all"></pre>
+      </div>
+
+      <!-- TAB 2: 5-STAGE SLICER -->
+      <div id="tab-slicer" class="tab-pane hidden flex-1 p-5 overflow-y-auto space-y-3">
+        <p class="text-xs text-zinc-400">Never ask AI to build a huge app in one shot. Run these 5 sequential prompts one after another:</p>
+        <div id="slicerContainer" class="space-y-3"></div>
+      </div>
+
+      <!-- TAB 3: CONTEXT FILES -->
+      <div id="tab-files" class="tab-pane hidden flex-1 p-5 overflow-y-auto space-y-4">
+        <div class="flex flex-wrap gap-2">
+          <button onclick="downloadFile('SPEC.md', document.getElementById('specMdOut').textContent)" class="px-3 py-1.5 rounded bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold">
+            <i class="fa-solid fa-download mr-1"></i> Download SPEC.md
+          </button>
+          <button onclick="downloadFile('.cursorrules', document.getElementById('cursorRulesOut').textContent)" class="px-3 py-1.5 rounded bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-semibold">
+            <i class="fa-solid fa-download mr-1"></i> Download .cursorrules
+          </button>
+        </div>
+        <div>
+          <h3 class="text-xs font-bold uppercase text-zinc-400 mb-1">SPEC.md</h3>
+          <pre id="specMdOut" class="p-3 rounded-lg bg-surface border border-border text-xs mono whitespace-pre-wrap text-zinc-300"></pre>
+        </div>
+        <div>
+          <h3 class="text-xs font-bold uppercase text-zinc-400 mb-1">.cursorrules / CONVENTIONS.md</h3>
+          <pre id="cursorRulesOut" class="p-3 rounded-lg bg-surface border border-border text-xs mono whitespace-pre-wrap text-zinc-300"></pre>
+        </div>
+      </div>
+
+      <!-- TAB 4: GOOGLE SHEET VAULT -->
+      <div id="tab-vault" class="tab-pane hidden flex-1 p-5 overflow-y-auto space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-white">Saved Specifications in Google Sheets (`Saved_Specs`)</h3>
+            <p class="text-xs text-zinc-400">Click any saved project to load its blueprint back into the workbench</p>
+          </div>
+          <button onclick="loadSpecsFromSheet()" class="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-emerald-400 border border-zinc-700">
+            <i class="fa-solid fa-rotate mr-1"></i> Refresh Sheet
+          </button>
+        </div>
+        <div id="vaultList" class="space-y-2 text-xs text-zinc-400">
+          Click "Refresh Sheet" to load your saved blueprints.
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- CLOUD API & GOOGLE SHEET SETUP MODAL -->
+  <div id="configModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-surface border border-border rounded-xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-border pb-3">
+        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-cloud text-emerald-400"></i> Cloud API & Google Sheet Configuration
+        </h2>
+        <button onclick="closeConfigModal()" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-zinc-300 mb-1">1. Google Apps Script Web App URL (`/exec`)</label>
+          <input id="cfgGasUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 rounded bg-panel border border-border text-white mono" />
+          <p class="text-[11px] text-zinc-400 mt-1">Deploy your `Code.gs` as a Web App with access set to <b>"Anyone"</b>.</p>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-zinc-300 mb-1">2. Cloud AI Routing Mode</label>
+          <select id="cfgAiProvider" class="w-full px-3 py-2 rounded bg-panel border border-border text-white">
+            <option value="gas_proxy">Google Apps Script Server-Side Proxy (Uses GEMINI_API_KEY in Script Properties)</option>
+            <option value="gemini_direct">Google Gemini API Direct (gemini-2.5-flash)</option>
+            <option value="groq_direct">Groq Cloud API Direct (llama-3.3-70b-versatile)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-zinc-300 mb-1">3. Cloud LLM API Key (Optional if stored in Script Properties)</label>
+          <input id="cfgApiKey" type="password" placeholder="AIzaSy... or gsk_..." class="w-full px-3 py-2 rounded bg-panel border border-border text-white mono" />
+          <p class="text-[11px] text-zinc-400 mt-1">Stored locally in your browser's `localStorage`. Never committed to GitHub.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-border">
+        <button onclick="testSheetConnection()" class="px-3 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-emerald-400 border border-zinc-700">
+          <i class="fa-solid fa-plug-circle-check mr-1"></i> Test Sheet Connection
+        </button>
+        <div class="flex gap-2">
+          <button onclick="closeConfigModal()" class="px-3 py-2 rounded bg-zinc-800 text-xs text-zinc-300">Cancel</button>
+          <button onclick="saveConfig()" class="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-black">Save Configuration</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-4 right-4 px-4 py-2.5 rounded-lg bg-zinc-900 border border-emerald-500/50 text-xs text-white shadow-xl hidden z-50"></div>
+
+  <script>
+    const STACKS = {
+      website: [
+        "HTML5 + Tailwind CSS + Vanilla JS (Zero-Build Netlify/GitHub Pages)",
+        "Astro + Tailwind CSS + Alpine.js (Ultra-Fast Static Site)",
+        "Next.js Static Export + Tailwind CSS + Framer Motion"
+      ],
+      webapp: [
+        "Single-File HTML/Tailwind + Google Sheets & Apps Script Backend (CORS REST)",
+        "React (Vite) + Tailwind CSS + Supabase (Auth & Postgres)",
+        "Python FastAPI + HTMX + SQLite/PostgreSQL"
+      ],
+      exe: [
+        "Python 3.11 + CustomTkinter (Modern Dark GUI) + PyInstaller (--onefile --noconsole)",
+        "Python 3.11 + PySide6 (Qt6) + ThreadPool + PyInstaller",
+        "C# .NET 8 WPF Single-File Publish (Windows Native)"
+      ]
+    };
+
+    let currentArtifact = 'webapp';
+
+    function setArtifact(type) {
+      currentArtifact = type;
+      document.querySelectorAll('.artifact-btn').forEach(btn => {
+        btn.className = 'artifact-btn p-3 rounded-lg border border-border bg-panel text-left transition opacity-70 hover:opacity-100';
+      });
+      const activeBtn = document.getElementById('type-' + type);
+      activeBtn.className = 'artifact-btn p-3 rounded-lg border border-emerald-500 bg-emerald-500/10 text-left transition';
+
+      const select = document.getElementById('stackSelect');
+      select.innerHTML = STACKS[type].map(s => `<option value="${s}">${s}</option>`).join('');
+
+      const exeChk = document.getElementById('exeRuleChk');
+      exeChk.checked = (type === 'exe');
+      compileAll();
+    }
+
+    function getSelectedRules() {
+      return Array.from(document.querySelectorAll('.rule-chk:checked')).map(el => el.value);
+    }
+
+    function compileAll() {
+      const name = document.getElementById('projName').value.trim() || 'Untitled Project';
+      const stack = document.getElementById('stackSelect').value;
+      const features = document.getElementById('projFeatures').value.trim();
+      const dataModel = document.getElementById('projData').value.trim();
+      const theme = document.getElementById('uiTheme').value;
+      const rules = getSelectedRules();
+
+      const artifactLabel = currentArtifact === 'exe' ? 'Standalone Windows Desktop .EXE' :
+                            currentArtifact === 'webapp' ? 'Full-Stack Cloud Web Application' : 'High-Conversion Responsive Website';
+
+      const master = `# ROLE & OBJECTIVE
+Act as a Principal Software Architect and Senior Full-Stack Engineer.
+Build **${name}**, a production-ready **${artifactLabel}**.
+
+## 1. TECH STACK (STRICT ENFORCEMENT)
+- **Target Platform:** ${artifactLabel}
+- **Framework & Stack:** ${stack}
+- **UI / UX Direction:** ${theme}
+
+## 2. FUNCTIONAL REQUIREMENTS & WORKFLOWS
+${features}
+
+## 3. DATA MODEL & STATE ARCHITECTURE
+${dataModel}
+
+## 4. STRICT ENGINEERING GUARDRAILS
+${rules.map((r, i) => `${i + 1}. ${r}`).join('\n')}
+
+## 5. EXPECTED DELIVERABLE
+Start by providing the clean file/folder structure, then output the complete, runnable implementation with zero omitted blocks.`;
+
+      document.getElementById('masterPromptOut').textContent = master;
+
+      const stages = [
+        {
+          title: "Stage 1: Architecture, Schema & File Blueprint",
+          prompt: `We are building "${name}" (${artifactLabel}) using ${stack}.\nData Model: ${dataModel}\n\nTask: Output ONLY the system architecture, exact file tree, state/database schema, and dependency list. Do not write the full UI code yet.`
+        },
+        {
+          title: "Stage 2: Core Backend / Data Layer & API Engine",
+          prompt: `Now implement Stage 2 for "${name}". Build the complete data access layer, state management, and API/storage functions supporting:\n${dataModel}\nInclude full try/catch error handling and validation.`
+        },
+        {
+          title: "Stage 3: Frontend UI Shell & Interactive Views",
+          prompt: `Now implement Stage 3 for "${name}". Build the complete user interface using theme: ${theme}.\nWire up all forms, tables, and action buttons to the backend functions from Stage 2. Output 100% complete code without placeholders.`
+        },
+        {
+          title: "Stage 4: Edge-Case Hardening & Logging",
+          prompt: `Review the implementation of "${name}" and add defensive input validation, loading spinners, empty-state screens, and error recovery toasts.`
+        },
+        {
+          title: currentArtifact === 'exe' ? "Stage 5: PyInstaller Single-File .EXE Packaging" : "Stage 5: Cloud Deployment & Production Checklist",
+          prompt: currentArtifact === 'exe'
+            ? `Provide the exact requirements.txt, resource_path(relative_path) helper using sys._MEIPASS, and the exact PyInstaller command (--noconsole --onefile) to compile "${name}" into a standalone Windows .exe.`
+            : `Provide the step-by-step deployment configuration for "${name}" (${stack}), including CORS handling, environment variables, and verification steps.`
+        }
+      ];
+
+      document.getElementById('slicerContainer').innerHTML = stages.map((s, idx) => `
+        <div class="p-3.5 rounded-xl bg-surface border border-border space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-emerald-400">${s.title}</span>
+            <button onclick="copyRawText(\`${s.prompt.replace(/`/g, '\\`')}\`)" class="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-200">
+              <i class="fa-regular fa-copy mr-1"></i>Copy Stage ${idx + 1}
+            </button>
+          </div>
+          <pre class="text-xs mono text-zinc-300 whitespace-pre-wrap">${s.prompt}</pre>
+        </div>
+      `).join('');
+
+      document.getElementById('specMdOut').textContent = master;
+      document.getElementById('cursorRulesOut').textContent = `# Project Rules for ${name}\n- Stack: ${stack}\n- Theme: ${theme}\n` + rules.map(r => `- ${r}`).join('\n');
+    }
+
+    // CLOUD AI REFINEMENT (MATCHED TO Code.gs `aiProxy` & `ok: true`)
+    async function refineWithCloudAI() {
+      const gasUrl = localStorage.getItem('pf_gas_url') || '';
+      const provider = localStorage.getItem('pf_ai_provider') || 'gas_proxy';
+      const apiKey = localStorage.getItem('pf_api_key') || '';
+      const rawFeatures = document.getElementById('projFeatures').value.trim();
+      const stack = document.getElementById('stackSelect').value;
+
+      if (!rawFeatures) return showToast('Enter a rough feature idea first!');
+
+      const btn = document.getElementById('btnRefineAI');
+      const origHtml = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Refining...';
+      btn.disabled = true;
+
+      const sysInstruction = `You are a Principal Software Architect. Expand the user's rough app idea for stack (${stack}) into 5 crisp, technical bullet points covering core workflows, UI states, and edge-case handling. Return ONLY the improved bullet points.`;
+
+      try {
+        let refinedText = '';
+
+        if (provider === 'gas_proxy') {
+          if (!gasUrl) throw new Error('Set your Google Apps Script URL in Cloud Setup first.');
+          const res = await fetch(gasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'aiProxy',
+              apiKey: apiKey,
+              model: 'gemini-2.5-flash',
+              systemPrompt: sysInstruction,
+              userPrompt: rawFeatures
+            }),
+            redirect: 'follow'
+          });
+          const data = await res.json();
+          if (!data.ok && data.status !== 'ok') throw new Error(data.error || data.message || 'GAS AI Proxy error');
+          refinedText = data.text || data.output || '';
+        } else if (provider === 'gemini_direct') {
+          if (!apiKey) throw new Error('Paste your Gemini API Key in Cloud Setup.');
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `${sysInstruction}\n\nRough Idea:\n${rawFeatures}` }] }]
+            })
+          });
+          const data = await res.json();
+          refinedText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        } else if (provider === 'groq_direct') {
+          if (!apiKey) throw new Error('Paste your Groq API Key in Cloud Setup.');
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              messages: [
+                { role: 'system', content: sysInstruction },
+                { role: 'user', content: rawFeatures }
+              ]
+            })
+          });
+          const data = await res.json();
+          refinedText = data?.choices?.[0]?.message?.content || '';
+        }
+
+        if (refinedText) {
+          document.getElementById('projFeatures').value = refinedText.trim();
+          compileAll();
+          showToast('Spec refined by Cloud AI!');
+        }
+      } catch (err) {
+        showToast('AI Error: ' + err.message);
+      } finally {
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+      }
+    }
+
+    // GOOGLE SHEETS SYNC (MATCHED TO Code.gs `saveSpec` & `listSpecs`)
+    async function saveSpecToSheet() {
+      const gasUrl = localStorage.getItem('pf_gas_url') || '';
+      if (!gasUrl) {
+        openConfigModal();
+        return showToast('Please paste your Google Apps Script /exec URL first.');
+      }
+
+      const btn = document.getElementById('btnSaveSheet');
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+      try {
+        const projectObj = {
+          id: 'SPEC-' + Date.now(),
+          name: document.getElementById('projName').value,
+          target: currentArtifact,
+          stack: document.getElementById('stackSelect').value,
+          features: document.getElementById('projFeatures').value,
+          dataModel: document.getElementById('projData').value,
+          theme: document.getElementById('uiTheme').value,
+          masterPrompt: document.getElementById('masterPromptOut').textContent
+        };
+
+        const res = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'saveSpec',
+            project: projectObj
+          }),
+          redirect: 'follow'
+        });
+        const data = await res.json();
+        if (data.ok || data.status === 'ok') {
+          showToast('Saved to Google Sheet (Saved_Specs)!');
+          updateBadge(true, 'Sheet Synced');
+        } else {
+          throw new Error(data.error || data.message || 'Save failed');
+        }
+      } catch (err) {
+        showToast('Sheet Error: ' + err.message);
+      } finally {
+        btn.innerHTML = orig;
+      }
+    }
+
+    async function loadSpecsFromSheet() {
+      const gasUrl = localStorage.getItem('pf_gas_url') || '';
+      const container = document.getElementById('vaultList');
+      if (!gasUrl) {
+        container.innerHTML = '<p class="text-amber-400">Configure your Google Apps Script URL first.</p>';
+        return;
+      }
+      container.innerHTML = '<p class="text-zinc-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Loading from Google Sheets...</p>';
+
+      try {
+        const res = await fetch(gasUrl + '?action=listSpecs', { redirect: 'follow' });
+        const data = await res.json();
+        const list = data.specs || data.items || [];
+        if (data.ok || data.status === 'ok') {
+          updateBadge(true, 'Sheet Connected');
+          if (list.length === 0) {
+            container.innerHTML = '<p class="text-zinc-500">No saved specs yet. Click "Save to Sheet" to store your first blueprint.</p>';
+            return;
+          }
+          window._loadedSpecs = list;
+          container.innerHTML = list.map((item, idx) => `
+            <div class="p-3 rounded-lg bg-surface border border-border flex items-center justify-between gap-2 hover:border-emerald-500/50 transition">
+              <div>
+                <div class="font-bold text-white text-xs">${item.name || item.projectName || 'Untitled'} <span class="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-emerald-400 ml-1">${item.target || item.targetType || ''}</span></div>
+                <div class="text-[11px] text-zinc-400">${item.stack || ''} • ${item.updatedAt || item.timestamp || ''}</div>
+              </div>
+              <button onclick="restoreSpec(${idx})" class="px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold">
+                Load Spec
+              </button>
+            </div>
+          `).join('');
+        }
+      } catch (e) {
+        container.innerHTML = `<p class="text-red-400">Connection error: ${e.message}</p>`;
+      }
+    }
+
+    function restoreSpec(idx) {
+      const item = (window._loadedSpecs || [])[idx];
+      if (!item) return;
+      const p = item.payload || item;
+      if (p.target) setArtifact(p.target);
+      if (p.name) document.getElementById('projName').value = p.name;
+      if (p.features) document.getElementById('projFeatures').value = p.features;
+      if (p.dataModel) document.getElementById('projData').value = p.dataModel;
+      compileAll();
+      switchTab('tab-master');
+      showToast('Loaded "' + (p.name || 'Spec') + '" into workbench!');
+    }
+
+    async function testSheetConnection() {
+      const url = document.getElementById('cfgGasUrl').value.trim();
+      if (!url) return showToast('Paste your /exec Web App URL first');
+      try {
+        const res = await fetch(url + '?action=ping', { redirect: 'follow' });
+        const data = await res.json();
+        if (data.ok || data.status === 'ok') {
+          updateBadge(true, data.sheetName ? `Linked: ${data.sheetName}` : 'Sheet Connected');
+          showToast(`Connected to ${data.sheetName || 'Google Sheets'}!`);
+        } else {
+          showToast('Error: ' + JSON.stringify(data));
+        }
+      } catch (e) {
+        showToast('CORS / Network Error: Ensure Who Has Access = Anyone');
+      }
+    }
+
+    function updateBadge(connected, labelText) {
+      const b = document.getElementById('sheetStatusBadge');
+      if (connected) {
+        b.className = 'text-[11px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-700';
+        b.innerHTML = `<i class="fa-solid fa-circle text-[8px] mr-1"></i>${labelText || 'Sheet Connected'}`;
+      }
+    }
+
+    // UI HELPERS
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+      document.getElementById(tabId).classList.remove('hidden');
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.className = 'tab-btn px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-zinc-400 hover:text-white';
+      });
+      document.getElementById('btn-' + tabId).className = 'tab-btn px-3 py-2 text-xs font-semibold border-b-2 border-emerald-400 text-emerald-400';
+      if (tabId === 'tab-vault') loadSpecsFromSheet();
+    }
+
+    function openConfigModal() {
+      document.getElementById('cfgGasUrl').value = localStorage.getItem('pf_gas_url') || '';
+      document.getElementById('cfgAiProvider').value = localStorage.getItem('pf_ai_provider') || 'gas_proxy';
+      document.getElementById('cfgApiKey').value = localStorage.getItem('pf_api_key') || '';
+      document.getElementById('configModal').classList.remove('hidden');
+      document.getElementById('configModal').classList.add('flex');
+    }
+
+    function closeConfigModal() {
+      document.getElementById('configModal').classList.add('hidden');
+      document.getElementById('configModal').classList.remove('flex');
+    }
+
+    function saveConfig() {
+      localStorage.setItem('pf_gas_url', document.getElementById('cfgGasUrl').value.trim());
+      localStorage.setItem('pf_ai_provider', document.getElementById('cfgAiProvider').value);
+      localStorage.setItem('pf_api_key', document.getElementById('cfgApiKey').value.trim());
+      closeConfigModal();
+      testSheetConnection();
+    }
+
+    function copyText(id) {
+      navigator.clipboard.writeText(document.getElementById(id).textContent);
+      showToast('Copied to clipboard!');
+    }
+
+    function copyRawText(txt) {
+      navigator.clipboard.writeText(txt);
+      showToast('Stage prompt copied!');
+    }
+
+    function downloadFile(filename, content) {
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 3200);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setArtifact('webapp');
+      if (localStorage.getItem('pf_gas_url')) {
+        updateBadge(true, 'Sheet Linked');
+      }
+    });
+  </script>
+</body>
+</html>
